@@ -143,6 +143,10 @@ BarWidget {
     // and light/dark theme contrast.
     text: "\uf11c"
 
+    // Keep the icon pure white matching all other status icons in the bar
+    useActiveColor: false
+    foreground: "#ffffff"
+
     // Dim the icon when backlight is off or driver is missing (standard Omarchy pattern)
     dimmed: !root.powered || !root.driverPresent
 
@@ -152,8 +156,8 @@ BarWidget {
           : "ALG RGB · Backlight Off (right-click to power on)")
       : "ALG RGB · Driver not loaded"
 
-    // Bar button is active (accent dot) when open or backlight is powered on
-    active: root.opened || (root.powered && root.driverPresent)
+    // Active state (accent pill indicator) only when the panel is opened
+    active: root.opened
 
     onPressed: function(btn) {
       if (btn === Qt.RightButton) {
