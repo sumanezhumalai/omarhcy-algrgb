@@ -128,6 +128,25 @@ alg-rgb probe
 alg-rgb list
 ```
 
+---
+
+## 🐚 Omarchy Shell Plugin
+
+For users running the [Omarchy desktop environment](https://github.com/omarchy/omarchy), a native status bar widget and control panel (`suman.alg-rgb`) is included under `plugin/suman.alg-rgb`.
+
+### Features
+- **Bar Icon**: White Font Awesome keyboard glyph (``) matching Omarchy native aesthetics.
+- **Standby Dimming**: Automatically dims when the backlight is off or standby.
+- **Control Panel**:
+  - Hero preview of the active color and power toggle.
+  - Discrete brightness slider (1 to 4).
+  - 16-color continuous eye-ease aesthetic spectrum (Terracotta, Flesh, Orange, Amber Sand, Buttercream, Matcha, Sage Mint, Deep Teal, Ocean Cyan, Denim Blue, Bluish White, Periwinkle, Muted Violet, Plum Mauve, Blossom Rose, Warm White).
+- **Interactions**:
+  - **Left-Click**: Toggle the control panel popup.
+  - **Right-Click**: Toggle keyboard backlight power on/off.
+
+The plugin is automatically installed to `~/.config/omarchy/plugins/suman.alg-rgb` when running `sudo bash ./install.sh` on an Omarchy system.
+
 ### Hardware Zones
 
 | Zone | Opcode | Description |
