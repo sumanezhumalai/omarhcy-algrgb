@@ -4,7 +4,7 @@
 # Remove the Acer ALG RGB keyboard stack installed by install.sh.
 #
 # Run with:
-#   sudo bash /path/to/alg-rgb/uninstall.sh
+#   sudo bash /path/to/luma-alg_rgb/uninstall.sh
 #
 # User configuration (~/.config/alg-rgb) is intentionally left in place.
 
@@ -13,9 +13,7 @@ set -euo pipefail
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 VERSION="$(sed -n 's/^#define ALG_RGB_VERSION_STRING "\([^"]*\)"/\1/p' "$ROOT/include/version.h" | head -n1)"
 DKMS_NAME="alg-rgb"
-EXT_UUID="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["uuid"])' "$ROOT/extension/metadata.json" 2>/dev/null || echo 'alg-rgb@chiragk.local')"
 SRC_DIR="/usr/src/${DKMS_NAME}-${VERSION}"
-EXT_DIR="/usr/share/gnome-shell/extensions/${EXT_UUID}"
 
 log()  { printf '[alg-rgb] %s\n' "$*"; }
 warn() { printf '[alg-rgb] WARNING: %s\n' "$*" >&2; }
@@ -36,35 +34,15 @@ fi
 log "Removing ALG RGB ${VERSION}"
 
 # ---------------------------------------------------------------------------
-# Stop user services and disable the extension
-# ---------------------------------------------------------------------------
-
-if [ -n "$TARGET_USER" ]; then
-    TARGET_UID="$(id -u "$TARGET_USER")"
-    RUNTIME_DIR="/run/user/${TARGET_UID}"
-
-    if [ -S "${RUNTIME_DIR}/bus" ] && command -v runuser >/dev/null 2>&1; then
-        run_user() {
-            runuser -u "$TARGET_USER" -- env \
-                HOME="$TARGET_HOME" \
-                XDG_RUNTIME_DIR="$RUNTIME_DIR" \
-                DBUS_SESSION_BUS_ADDRESS="unix:path=${RUNTIME_DIR}/bus" \
-                "$@"
-        }
-
-        if command -v gnome-extensions >/dev/null 2>&1; then
-            run_user gnome-extensions disable "$EXT_UUID" >/dev/null 2>&1 || true
-        fi
-        run_user systemctl --user disable --now alg-rgb-web.service >/dev/null 2>&1 || true
-    fi
-fi
-
-# ---------------------------------------------------------------------------
-# System services, module and DKMS
+# Stop system services
 # ---------------------------------------------------------------------------
 
 log "Stopping system services"
 systemctl disable --now alg-rgb-restore.service >/dev/null 2>&1 || true
+
+# ---------------------------------------------------------------------------
+# Unload and remove kernel module
+# ---------------------------------------------------------------------------
 
 log "Removing kernel module"
 modprobe -r alg_rgb >/dev/null 2>&1 || true
@@ -74,7 +52,7 @@ dkms remove -m "$DKMS_NAME" -v "$VERSION" --all >/dev/null 2>&1 || true
 rm -rf "$SRC_DIR"
 
 # ---------------------------------------------------------------------------
-# Installed files
+# Remove installed files
 # ---------------------------------------------------------------------------
 
 log "Removing installed files"
@@ -84,24 +62,11 @@ rm -f /etc/modules-load.d/alg_rgb.conf
 rm -f /etc/systemd/system/alg-rgb-restore.service
 rm -f /usr/lib/systemd/system-sleep/alg-rgb
 rm -f /usr/local/bin/alg-rgb
-rm -f /usr/local/bin/alg-rgb-web
-rm -rf /usr/local/lib/alg-rgb
-rm -f /usr/lib/systemd/user/alg-rgb-web.service
-rm -f /usr/share/applications/alg-rgb-dashboard.desktop
-rm -f /usr/share/icons/hicolor/scalable/apps/lumen-rgb.svg
-rm -rf "$EXT_DIR"
 rm -rf /var/lib/alg-rgb
 
 systemctl daemon-reload
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=misc --action=remove >/dev/null 2>&1 || true
-
-if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-    gtk-update-icon-cache -f /usr/share/icons/hicolor >/dev/null 2>&1 || true
-fi
-if command -v update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database /usr/share/applications >/dev/null 2>&1 || true
-fi
 
 # ---------------------------------------------------------------------------
 # Group membership
@@ -125,8 +90,8 @@ ALG RGB ${VERSION} removed
 ================================================================================
 
 User configuration was kept at ~/.config/alg-rgb.
-A reboot or logout is recommended so the kernel module and GNOME extension
-are fully unloaded.  If the keyboard is left in a custom state, the firmware
-will retain it until the next power cycle or another RGB command.
+A reboot or logout is recommended so the kernel module is fully unloaded.
+If the keyboard is left in a custom state, the firmware retains it until the
+next power cycle or another RGB command.
 ================================================================================
 EOF

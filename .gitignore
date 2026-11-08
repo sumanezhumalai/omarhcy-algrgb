@@ -14,15 +14,8 @@
 Module.symvers
 modules.order
 
-# CLI / helper binaries
+# CLI binary
 cli/alg-rgb
-web/alg-rgb
-
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
 
 # Logs and editor files
 *.log
