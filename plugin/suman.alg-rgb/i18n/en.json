@@ -1,0 +1,9 @@
+{
+  "title": "Keyboard Backlight",
+  "off": "Backlight Off",
+  "brightness": "Brightness",
+  "colors": "Colors",
+  "driverMissing": "Driver not loaded",
+  "tooltip": "ALG RGB Backlight"
+}
+

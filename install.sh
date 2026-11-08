@@ -158,6 +158,20 @@ if [ -e /dev/alg_rgb ]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Omarchy Shell Plugin (installed if Omarchy is present)
+# ---------------------------------------------------------------------------
+
+if [ -n "$TARGET_HOME" ] && [ -d "$TARGET_HOME/.config/omarchy" ] && [ -d "$ROOT/plugin/suman.alg-rgb" ]; then
+    OMARCHY_PLUGINS="$TARGET_HOME/.config/omarchy/plugins"
+    PLUGIN_TARGET="$OMARCHY_PLUGINS/suman.alg-rgb"
+    log "Installing Omarchy shell plugin to $PLUGIN_TARGET"
+    mkdir -p "$OMARCHY_PLUGINS"
+    rm -rf "$PLUGIN_TARGET"
+    cp -r "$ROOT/plugin/suman.alg-rgb" "$PLUGIN_TARGET"
+    chown -R "$TARGET_USER:$TARGET_USER" "$PLUGIN_TARGET" 2>/dev/null || true
+fi
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 

@@ -64,6 +64,11 @@ rm -f /usr/lib/systemd/system-sleep/alg-rgb
 rm -f /usr/local/bin/alg-rgb
 rm -rf /var/lib/alg-rgb
 
+if [ -n "$TARGET_HOME" ] && [ -d "$TARGET_HOME/.config/omarchy/plugins/suman.alg-rgb" ]; then
+    log "Removing Omarchy shell plugin"
+    rm -rf "$TARGET_HOME/.config/omarchy/plugins/suman.alg-rgb"
+fi
+
 systemctl daemon-reload
 udevadm control --reload-rules
 udevadm trigger --subsystem-match=misc --action=remove >/dev/null 2>&1 || true
