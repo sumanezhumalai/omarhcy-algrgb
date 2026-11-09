@@ -1,4 +1,4 @@
-# ALG RGB
+# suman-algrgb
 
 Native Linux ACPI lighting driver, CLI, and Omarchy shell plugin for the **Acer Aspire Lite AL15G-52**.
 

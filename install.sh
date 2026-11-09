@@ -7,7 +7,7 @@
 #   - udev / modules-load / systemd integration
 #
 # Run from anywhere:
-#   sudo bash /path/to/luma-alg_rgb/install.sh
+#   sudo bash /path/to/suman-algrgb/install.sh
 #
 # The installer is idempotent and safe to re-run.
 

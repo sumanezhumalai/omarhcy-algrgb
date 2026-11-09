@@ -4,7 +4,7 @@
 # Remove the Acer ALG RGB keyboard stack installed by install.sh.
 #
 # Run with:
-#   sudo bash /path/to/luma-alg_rgb/uninstall.sh
+#   sudo bash /path/to/suman-algrgb/uninstall.sh
 #
 # User configuration (~/.config/alg-rgb) is intentionally left in place.
 
