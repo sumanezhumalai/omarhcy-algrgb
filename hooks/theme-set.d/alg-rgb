@@ -24,7 +24,30 @@ fi
 if [ -f "$COLORS_TOML" ]; then
   ACCENT="$(grep -E '^\s*accent\s*=' "$COLORS_TOML" | head -n1 | sed -E 's/.*"([^"]+)".*/\1/' | tr -d ' ')"
   if [[ "$ACCENT" =~ ^#[0-9A-Fa-f]{6}$ ]]; then
-    /usr/local/bin/alg-rgb color "$ACCENT" >/dev/null 2>&1 || true
+    # Check if hyprsunset night light is active (< 6000K)
+    TEMP="$(hyprctl hyprsunset temperature 2>/dev/null | grep -oE '[0-9]+' || true)"
+    if [ -z "$TEMP" ]; then
+      TEMP="$(pgrep -a hyprsunset 2>/dev/null | grep -oE '(?:-t|--temperature)[[:space:]]+[0-9]+' | grep -oE '[0-9]+' || true)"
+    fi
+
+    if [ -n "$TEMP" ] && [ "$TEMP" -lt 6000 ] && [ "$TEMP" -gt 1000 ]; then
+      # 3250K CTM chromatic adaptation: R*1.0, G*0.720, B*0.483
+      R=$((16#${ACCENT:1:2}))
+      G=$((16#${ACCENT:3:2}))
+      B=$((16#${ACCENT:5:2}))
+      FACTOR=$(( 6000 - TEMP ))
+      G_SCALE=$(( 10000 - (FACTOR * 2799 / 2750) ))
+      B_SCALE=$(( 10000 - (FACTOR * 5172 / 2750) ))
+      [ $G_SCALE -lt 1000 ] && G_SCALE=1000
+      [ $B_SCALE -lt 1000 ] && B_SCALE=1000
+      [ $G_SCALE -gt 10000 ] && G_SCALE=10000
+      [ $B_SCALE -gt 10000 ] && B_SCALE=10000
+      G_NEW=$(( (G * G_SCALE) / 10000 ))
+      B_NEW=$(( (B * B_SCALE) / 10000 ))
+      ADAPTED=$(printf "#%02x%02x%02x" "$R" "$G_NEW" "$B_NEW")
+      /usr/local/bin/alg-rgb color "$ADAPTED" >/dev/null 2>&1 || true
+    else
+      /usr/local/bin/alg-rgb color "$ACCENT" >/dev/null 2>&1 || true
+    fi
   fi
 fi
-

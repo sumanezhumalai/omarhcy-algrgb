@@ -34,6 +34,12 @@ Panel {
   property bool   isDynamic:         false
   property color  themeColor:        Commons.Color.accent
 
+  // Night light & color tracking (received from BarWidget)
+  property bool   isNightLight:      false
+  property int    sunsetTemp:        6000
+  property string baseColor:         "#ffffff"
+  property string effectiveColor:    "#ffffff"
+
   function colorToHex(c) {
     if (!c) return "#ffffff"
     var s = String(c).trim().toLowerCase()
@@ -54,6 +60,9 @@ Panel {
   function refresh() {
     if (!statusProc.running) {
       statusProc.running = true
+    }
+    if (root.hostWidget && typeof root.hostWidget.refresh === "function") {
+      root.hostWidget.refresh()
     }
   }
 
@@ -76,6 +85,12 @@ Panel {
     root.powered           = (obj.power === "on")
     root.currentBrightness = parseInt(obj.brightness) || 1
     root.currentColor      = obj.color || "#ffffff"
+
+    if ((!root.baseColor || root.baseColor === "#ffffff") && !root.isNightLight && root.currentColor) {
+      if (!root.isDynamic) {
+        root.baseColor = root.currentColor
+      }
+    }
   }
 
   // ---- Commands --------------------------------------------------------
@@ -99,6 +114,7 @@ Panel {
 
   function applyColor(hex) {
     root.currentColor = hex
+    root.baseColor = hex
     runAlgRgb(["color", hex, String(root.currentBrightness)])
   }
 
@@ -113,20 +129,22 @@ Panel {
 
   function applyDynamic() {
     root.isDynamic = true
+    root.baseColor = root.colorToHex(root.themeColor)
     if (root.hostWidget && typeof root.hostWidget.setDynamicMode === "function") {
       root.hostWidget.setDynamicMode(true)
     } else {
-      var hex = root.colorToHex(root.themeColor)
-      root.applyColor(hex)
+      root.applyColor(root.baseColor)
     }
   }
 
   function applyPreset(hex) {
     root.isDynamic = false
-    if (root.hostWidget && typeof root.hostWidget.setDynamicMode === "function") {
-      root.hostWidget.setDynamicMode(false)
+    root.baseColor = hex
+    if (root.hostWidget && typeof root.hostWidget.setBaseColor === "function") {
+      root.hostWidget.setBaseColor(hex)
+    } else {
+      root.applyColor(hex)
     }
-    root.applyColor(hex)
   }
 
   Component.onCompleted: root.refresh()
@@ -158,9 +176,17 @@ Panel {
             width: parent.width
             foreground: root.bar ? root.bar.foreground : Commons.Color.foreground
             fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-            title: root.powered ? (root.isDynamic ? "Theme Backlight" : "Keyboard Backlight") : "Backlight Off"
+            title: root.powered
+              ? (root.isNightLight
+                  ? (root.isDynamic ? "Night Light · Dynamic" : "Night Light Backlight")
+                  : (root.isDynamic ? "Theme Backlight" : "Keyboard Backlight"))
+              : "Backlight Off"
             meta: root.driverPresent
-              ? (root.powered ? (root.isDynamic ? "DYNAMIC · " + root.currentColor.toUpperCase() : root.currentColor.toUpperCase()) : "STANDBY")
+              ? (root.powered
+                  ? (root.isNightLight
+                      ? (root.sunsetTemp + "K NIGHT LIGHT · " + (root.isDynamic ? "DYNAMIC" : root.baseColor.toUpperCase()))
+                      : (root.isDynamic ? ("DYNAMIC · " + root.currentColor.toUpperCase()) : root.currentColor.toUpperCase()))
+                  : "STANDBY")
               : "DRIVER NOT LOADED"
 
             iconComponent: Component {
@@ -168,7 +194,7 @@ Panel {
                 implicitWidth:  Style.font.display
                 implicitHeight: Style.font.display
                 radius:         height / 2
-                color:          root.powered ? root.currentColor : "transparent"
+                color:          root.powered ? (root.isNightLight ? (root.effectiveColor || root.currentColor) : root.currentColor) : "transparent"
                 border.width:   root.powered ? 0 : 2
                 border.color:   root.bar
                   ? Qt.rgba(root.bar.foreground.r, root.bar.foreground.g, root.bar.foreground.b, 0.3)
@@ -385,7 +411,8 @@ Panel {
                     implicitHeight: presetCol.implicitHeight
 
                     readonly property bool isActive:
-                      !root.isDynamic && root.currentColor.toLowerCase() === presetItem.modelData.hex.toLowerCase()
+                      !root.isDynamic && (root.baseColor.toLowerCase() === presetItem.modelData.hex.toLowerCase() ||
+                                          (!root.isNightLight && root.currentColor.toLowerCase() === presetItem.modelData.hex.toLowerCase()))
 
                     Column {
                       id: presetCol
