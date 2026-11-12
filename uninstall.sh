@@ -64,9 +64,15 @@ rm -f /usr/lib/systemd/system-sleep/alg-rgb
 rm -f /usr/local/bin/alg-rgb
 rm -rf /var/lib/alg-rgb
 
-if [ -n "$TARGET_HOME" ] && [ -d "$TARGET_HOME/.config/omarchy/plugins/suman.alg-rgb" ]; then
-    log "Removing Omarchy shell plugin"
-    rm -rf "$TARGET_HOME/.config/omarchy/plugins/suman.alg-rgb"
+if [ -n "$TARGET_HOME" ]; then
+    if [ -d "$TARGET_HOME/.config/omarchy/plugins/suman.alg-rgb" ]; then
+        log "Removing Omarchy shell plugin"
+        rm -rf "$TARGET_HOME/.config/omarchy/plugins/suman.alg-rgb"
+    fi
+    if [ -f "$TARGET_HOME/.config/omarchy/hooks/theme-set.d/alg-rgb" ]; then
+        log "Removing Omarchy theme-set hook"
+        rm -f "$TARGET_HOME/.config/omarchy/hooks/theme-set.d/alg-rgb"
+    fi
 fi
 
 systemctl daemon-reload

@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-2.0
+# Omarchy theme hook: sync Acer ALG RGB keyboard backlight when dynamic mode is active.
+
+set -u
+
+MODE_FILE="$HOME/.config/alg-rgb/mode"
+[ -f "$MODE_FILE" ] || exit 0
+[ "$(<"$MODE_FILE")" = "dynamic" ] || exit 0
+
+THEME_DIR="$HOME/.local/state/omarchy/current/theme"
+COLORS_TOML="$THEME_DIR/colors.toml"
+
+# Fallback: if current state is not yet staged, look in /usr/share/omarchy/themes/$1 or ~/.config/omarchy/themes/$1
+if [ ! -f "$COLORS_TOML" ] && [ -n "${1:-}" ]; then
+  THEME_SLUG="$(echo "$1" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+  if [ -f "$HOME/.config/omarchy/themes/$THEME_SLUG/colors.toml" ]; then
+    COLORS_TOML="$HOME/.config/omarchy/themes/$THEME_SLUG/colors.toml"
+  elif [ -f "/usr/share/omarchy/themes/$THEME_SLUG/colors.toml" ]; then
+    COLORS_TOML="/usr/share/omarchy/themes/$THEME_SLUG/colors.toml"
+  fi
+fi
+
+if [ -f "$COLORS_TOML" ]; then
+  ACCENT="$(grep -E '^\s*accent\s*=' "$COLORS_TOML" | head -n1 | sed -E 's/.*"([^"]+)".*/\1/' | tr -d ' ')"
+  if [[ "$ACCENT" =~ ^#[0-9A-Fa-f]{6}$ ]]; then
+    /usr/local/bin/alg-rgb color "$ACCENT" >/dev/null 2>&1 || true
+  fi
+fi
+

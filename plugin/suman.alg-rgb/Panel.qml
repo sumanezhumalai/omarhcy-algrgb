@@ -19,11 +19,30 @@ Panel {
   property var anchorItem: null
   property var hostWidget: null
 
+  // Identity anchor for Omarchy Bar Popout management.
+  // Using hostWidget (BarWidget) ensures the system tray knows its drawer
+  // must hold open (bar.traySectionPopoutOpen === true) while this panel is open.
+  readonly property var barIdentity: hostWidget || root
+
   // ---- Driver state ----------------------------------------------------
   property string currentColor:      "#ffffff"
   property int    currentBrightness: 1
   property bool   powered:           true
   property bool   driverPresent:     true
+
+  // Dynamic theme state
+  property bool   isDynamic:         false
+  property color  themeColor:        Commons.Color.accent
+
+  function colorToHex(c) {
+    if (!c) return "#ffffff"
+    var s = String(c).trim().toLowerCase()
+    if (s.indexOf("#") === 0) {
+      if (s.length === 9) return "#" + s.substring(3)
+      if (s.length === 7) return s
+    }
+    return "#ffffff"
+  }
 
   // Re-read status whenever the panel opens
   onOpenedChanged: {
@@ -92,13 +111,31 @@ Panel {
     runAlgRgb(root.powered ? ["off"] : ["on"])
   }
 
+  function applyDynamic() {
+    root.isDynamic = true
+    if (root.hostWidget && typeof root.hostWidget.setDynamicMode === "function") {
+      root.hostWidget.setDynamicMode(true)
+    } else {
+      var hex = root.colorToHex(root.themeColor)
+      root.applyColor(hex)
+    }
+  }
+
+  function applyPreset(hex) {
+    root.isDynamic = false
+    if (root.hostWidget && typeof root.hostWidget.setDynamicMode === "function") {
+      root.hostWidget.setDynamicMode(false)
+    }
+    root.applyColor(hex)
+  }
+
   Component.onCompleted: root.refresh()
 
   // ---- Popup surface ---------------------------------------------------
   KeyboardPanel {
     id: panel
     anchorItem: root.anchorItem
-    owner: root
+    owner: root.barIdentity
     bar: root.bar
     open: root.opened
     centerOnBar: false
@@ -121,9 +158,9 @@ Panel {
             width: parent.width
             foreground: root.bar ? root.bar.foreground : Commons.Color.foreground
             fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
-            title: root.powered ? "Keyboard Backlight" : "Backlight Off"
+            title: root.powered ? (root.isDynamic ? "Theme Backlight" : "Keyboard Backlight") : "Backlight Off"
             meta: root.driverPresent
-              ? (root.powered ? root.currentColor.toUpperCase() : "STANDBY")
+              ? (root.powered ? (root.isDynamic ? "DYNAMIC · " + root.currentColor.toUpperCase() : root.currentColor.toUpperCase()) : "STANDBY")
               : "DRIVER NOT LOADED"
 
             iconComponent: Component {
@@ -216,7 +253,7 @@ Panel {
             foreground: root.bar ? root.bar.foreground : Commons.Color.foreground
           }
 
-          // ---- Color presets -------------------------------------------
+          // ---- Curated Color Options (Dynamic + 4 Warm Presets) ---------
           Item {
             width: parent.width
             implicitHeight: colorCol.implicitHeight
@@ -237,78 +274,181 @@ Panel {
                 fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
               }
 
-              // 8×2 swatch grid: 16 warm, eye-easy aesthetic colors in natural spectrum order
-              Grid {
-                id: swatchGrid
+              Row {
+                id: optionsRow
                 width: parent.width
-                columns: 8
                 spacing: Style.space(6)
 
-                readonly property var colors: [
-                  { hex: "#d46a6a", name: "Terracotta"   },
-                  { hex: "#ff7f3f", name: "Flesh"        },
-                  { hex: "#ff7f00", name: "Warm Orange"  },
-                  { hex: "#e0af68", name: "Amber Sand"   },
-                  { hex: "#ded885", name: "Buttercream"  },
-                  { hex: "#87a96b", name: "Matcha Green" },
-                  { hex: "#98d7c2", name: "Sage Mint"    },
-                  { hex: "#167d7f", name: "Deep Teal"    },
-                  { hex: "#29a0b1", name: "Ocean Cyan"   },
-                  { hex: "#6b8cae", name: "Denim Blue"   },
-                  { hex: "#d3d9e9", name: "Bluish White" },
-                  { hex: "#a29dc6", name: "Periwinkle"   },
-                  { hex: "#8976a2", name: "Muted Violet" },
-                  { hex: "#8c5670", name: "Plum Mauve"   },
-                  { hex: "#f8c0c8", name: "Blossom Rose" },
-                  { hex: "#e8e4dc", name: "Warm White"   }
-                ]
+                readonly property real itemWidth: Math.floor((optionsRow.width - optionsRow.spacing * 4) / 5)
+                readonly property real swatchSize: Math.min(itemWidth, Style.space(38))
 
-                Repeater {
-                  model: swatchGrid.colors
+                // 1. Dynamic Omarchy Theme Swatch
+                Item {
+                  id: dynamicItem
+                  width: optionsRow.itemWidth
+                  implicitHeight: dynamicCol.implicitHeight
 
-                  delegate: Rectangle {
-                    id: swatch
-                    required property var modelData
-                    required property int index
+                  Column {
+                    id: dynamicCol
+                    width: parent.width
+                    spacing: Style.space(6)
 
-                    readonly property real swatchSize: Math.floor((swatchGrid.width - swatchGrid.spacing * 7) / 8)
-                    width:  swatchSize
-                    height: swatchSize
-                    radius: swatchSize / 2
+                    Item {
+                      width: parent.width
+                      height: optionsRow.swatchSize
 
-                    color: swatch.modelData.hex
+                      Rectangle {
+                        id: dynamicSwatch
+                        width:  optionsRow.swatchSize
+                        height: optionsRow.swatchSize
+                        radius: optionsRow.swatchSize / 2
+                        anchors.horizontalCenter: parent.horizontalCenter
 
-                    readonly property bool isActive:
-                      root.currentColor.toLowerCase() === swatch.modelData.hex.toLowerCase()
+                        color: root.themeColor
 
-                    border.width: isActive ? 2 : 1
-                    border.color: isActive
-                      ? (root.bar ? root.bar.foreground : "#ffffff")
-                      : Qt.rgba(root.bar ? root.bar.foreground.r : 1,
-                                root.bar ? root.bar.foreground.g : 1,
-                                root.bar ? root.bar.foreground.b : 1,
-                                0.2)
+                        border.width: root.isDynamic ? 2 : 1
+                        border.color: root.isDynamic
+                          ? (root.bar ? root.bar.foreground : "#ffffff")
+                          : Qt.rgba(root.bar ? root.bar.foreground.r : 1,
+                                    root.bar ? root.bar.foreground.g : 1,
+                                    root.bar ? root.bar.foreground.b : 1,
+                                    0.25)
 
-                    scale: swatchMouse.containsMouse ? 1.15 : 1.0
-                    Behavior on scale {
-                      NumberAnimation {
-                        duration: Style.duration(100)
-                        easing.type: Easing.OutCubic
+                        scale: dynamicMouse.containsMouse ? 1.12 : 1.0
+                        Behavior on scale {
+                          NumberAnimation {
+                            duration: Style.duration(100)
+                            easing.type: Easing.OutCubic
+                          }
+                        }
+
+                        // Theme palette icon inside dynamic swatch
+                        Text {
+                          anchors.centerIn: parent
+                          textFormat: Text.PlainText
+                          text: "\uf53f"
+                          font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                          font.pixelSize: Style.font.caption
+                          color: {
+                            var tc = root.themeColor
+                            var lum = 0.299 * tc.r + 0.587 * tc.g + 0.114 * tc.b
+                            return lum > 0.6 ? "#1a1a1a" : "#ffffff"
+                          }
+                        }
+
+                        PanelToolTip {
+                          visible: dynamicMouse.containsMouse
+                          text: "Dynamic · Omarchy Theme"
+                          fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+                        }
+
+                        MouseArea {
+                          id: dynamicMouse
+                          anchors.fill: parent
+                          hoverEnabled: true
+                          cursorShape: Qt.PointingHandCursor
+                          onClicked: root.applyDynamic()
+                        }
                       }
                     }
 
-                    PanelToolTip {
-                      visible: swatchMouse.containsMouse
-                      text: swatch.modelData.name
-                      fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+                    Text {
+                      width: parent.width
+                      horizontalAlignment: Text.AlignHCenter
+                      textFormat: Text.PlainText
+                      text: "Dynamic"
+                      color: root.bar ? root.bar.foreground : Commons.Color.foreground
+                      font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                      font.pixelSize: Style.font.caption
+                      font.bold: root.isDynamic
+                      opacity: root.isDynamic ? 1.0 : 0.6
+                      elide: Text.ElideRight
                     }
+                  }
+                }
 
-                    MouseArea {
-                      id: swatchMouse
-                      anchors.fill: parent
-                      hoverEnabled: true
-                      cursorShape: Qt.PointingHandCursor
-                      onClicked: root.applyColor(swatch.modelData.hex)
+                // 2–5. Four Curated Warm Aesthetic Presets
+                Repeater {
+                  model: [
+                    { hex: "#ff7f3f", name: "Flesh",       label: "Flesh"  },
+                    { hex: "#ff7f00", name: "Warm Orange", label: "Orange" },
+                    { hex: "#e0af68", name: "Amber Sand",  label: "Amber"  },
+                    { hex: "#ded885", name: "Buttercream", label: "Cream"  }
+                  ]
+
+                  delegate: Item {
+                    id: presetItem
+                    required property var modelData
+                    required property int index
+
+                    width: optionsRow.itemWidth
+                    implicitHeight: presetCol.implicitHeight
+
+                    readonly property bool isActive:
+                      !root.isDynamic && root.currentColor.toLowerCase() === presetItem.modelData.hex.toLowerCase()
+
+                    Column {
+                      id: presetCol
+                      width: parent.width
+                      spacing: Style.space(6)
+
+                      Item {
+                        width: parent.width
+                        height: optionsRow.swatchSize
+
+                        Rectangle {
+                          id: presetSwatch
+                          width:  optionsRow.swatchSize
+                          height: optionsRow.swatchSize
+                          radius: optionsRow.swatchSize / 2
+                          anchors.horizontalCenter: parent.horizontalCenter
+
+                          color: presetItem.modelData.hex
+
+                          border.width: presetItem.isActive ? 2 : 1
+                          border.color: presetItem.isActive
+                            ? (root.bar ? root.bar.foreground : "#ffffff")
+                            : Qt.rgba(root.bar ? root.bar.foreground.r : 1,
+                                      root.bar ? root.bar.foreground.g : 1,
+                                      root.bar ? root.bar.foreground.b : 1,
+                                      0.25)
+
+                          scale: presetMouse.containsMouse ? 1.12 : 1.0
+                          Behavior on scale {
+                            NumberAnimation {
+                              duration: Style.duration(100)
+                              easing.type: Easing.OutCubic
+                            }
+                          }
+
+                          PanelToolTip {
+                            visible: presetMouse.containsMouse
+                            text: presetItem.modelData.name + " (" + presetItem.modelData.hex.toUpperCase() + ")"
+                            fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+                          }
+
+                          MouseArea {
+                            id: presetMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.applyPreset(presetItem.modelData.hex)
+                          }
+                        }
+                      }
+
+                      Text {
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        textFormat: Text.PlainText
+                        text: presetItem.modelData.label
+                        color: root.bar ? root.bar.foreground : Commons.Color.foreground
+                        font.family: root.bar ? root.bar.fontFamily : Style.font.family
+                        font.pixelSize: Style.font.caption
+                        font.bold: presetItem.isActive
+                        opacity: presetItem.isActive ? 1.0 : 0.6
+                        elide: Text.ElideRight
+                      }
                     }
                   }
                 }

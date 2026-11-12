@@ -158,17 +158,27 @@ if [ -e /dev/alg_rgb ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Omarchy Shell Plugin (installed if Omarchy is present)
+# Omarchy Integration (installed if Omarchy is present)
 # ---------------------------------------------------------------------------
 
-if [ -n "$TARGET_HOME" ] && [ -d "$TARGET_HOME/.config/omarchy" ] && [ -d "$ROOT/plugin/suman.alg-rgb" ]; then
-    OMARCHY_PLUGINS="$TARGET_HOME/.config/omarchy/plugins"
-    PLUGIN_TARGET="$OMARCHY_PLUGINS/suman.alg-rgb"
-    log "Installing Omarchy shell plugin to $PLUGIN_TARGET"
-    mkdir -p "$OMARCHY_PLUGINS"
-    rm -rf "$PLUGIN_TARGET"
-    cp -r "$ROOT/plugin/suman.alg-rgb" "$PLUGIN_TARGET"
-    chown -R "$TARGET_USER:$TARGET_USER" "$PLUGIN_TARGET" 2>/dev/null || true
+if [ -n "$TARGET_HOME" ] && [ -d "$TARGET_HOME/.config/omarchy" ]; then
+    if [ -d "$ROOT/plugin/suman.alg-rgb" ]; then
+        OMARCHY_PLUGINS="$TARGET_HOME/.config/omarchy/plugins"
+        PLUGIN_TARGET="$OMARCHY_PLUGINS/suman.alg-rgb"
+        log "Installing Omarchy shell plugin to $PLUGIN_TARGET"
+        mkdir -p "$OMARCHY_PLUGINS"
+        rm -rf "$PLUGIN_TARGET"
+        cp -r "$ROOT/plugin/suman.alg-rgb" "$PLUGIN_TARGET"
+        chown -R "$TARGET_USER:$TARGET_USER" "$PLUGIN_TARGET" 2>/dev/null || true
+    fi
+
+    if [ -f "$ROOT/hooks/theme-set.d/alg-rgb" ]; then
+        HOOK_DIR="$TARGET_HOME/.config/omarchy/hooks/theme-set.d"
+        log "Installing Omarchy theme-set hook to $HOOK_DIR/alg-rgb"
+        mkdir -p "$HOOK_DIR"
+        install -Dm755 "$ROOT/hooks/theme-set.d/alg-rgb" "$HOOK_DIR/alg-rgb"
+        chown "$TARGET_USER:$TARGET_USER" "$HOOK_DIR/alg-rgb" 2>/dev/null || true
+    fi
 fi
 
 # ---------------------------------------------------------------------------

@@ -122,7 +122,8 @@ A native status bar widget and control panel (`suman.alg-rgb`) is included under
 - **Control Panel**:
   - Live color preview swatch and power toggle.
   - Discrete brightness slider (levels 1 to 4).
-  - 16-color continuous eye-ease aesthetic spectrum (Terracotta, Flesh, Orange, Amber Sand, Buttercream, Matcha, Sage Mint, Deep Teal, Ocean Cyan, Denim Blue, Bluish White, Periwinkle, Muted Violet, Plum Mauve, Blossom Rose, Warm White).
+  - **Dynamic Theme Matching**: Automatically pairs the keyboard backlight with the active Omarchy theme's accent color live whenever themes switch.
+  - **Curated Warm Presets**: One-click static lock into warm, eye-easy aesthetic tones (Flesh `#ff7f3f`, Warm Orange `#ff7f00`, Amber Sand `#e0af68`, Buttercream `#ded885`).
 - **Interactions**:
   - **Left-Click**: Toggle the control panel popup.
   - **Right-Click**: Toggle backlight power on/off.

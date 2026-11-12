@@ -17,6 +17,68 @@ BarWidget {
   property bool   powered: true
   property bool   driverPresent: false
 
+  // Dynamic theme tracking
+  property bool   isDynamic: false
+  readonly property color themeColor: Commons.Color.accent
+
+  function colorToHex(c) {
+    if (!c) return "#ffffff"
+    var s = String(c).trim().toLowerCase()
+    if (s.indexOf("#") === 0) {
+      if (s.length === 9) return "#" + s.substring(3)
+      if (s.length === 7) return s
+    }
+    return "#ffffff"
+  }
+
+  // React to system-wide theme changes live
+  onThemeColorChanged: {
+    if (root.isDynamic && root.driverPresent && root.powered) {
+      var hex = root.colorToHex(root.themeColor)
+      root.runCmd(["color", hex, String(root.currentBrightness)])
+    }
+    root.injectPanel()
+  }
+
+  // Persisted mode file (~/.config/alg-rgb/mode)
+  FileView {
+    id: modeFile
+    path: Quickshell.env("HOME") + "/.config/alg-rgb/mode"
+    watchChanges: true
+    printErrors: false
+    onLoaded: {
+      var m = (text() || "").trim()
+      root.isDynamic = (m === "dynamic")
+      if (root.isDynamic && root.driverPresent && root.powered) {
+        var hex = root.colorToHex(root.themeColor)
+        if (root.currentColor.toLowerCase() !== hex.toLowerCase()) {
+          root.runCmd(["color", hex, String(root.currentBrightness)])
+        }
+      }
+      root.injectPanel()
+    }
+    onFileChanged: reload()
+  }
+
+  Process {
+    id: setModeProc
+    running: false
+  }
+
+  function setDynamicMode(dynamicEnabled) {
+    root.isDynamic = dynamicEnabled
+    var modeStr = dynamicEnabled ? "dynamic" : "static"
+    setModeProc.command = ["sh", "-c", "mkdir -p \"$HOME/.config/alg-rgb\" && printf '%s' " + modeStr + " > \"$HOME/.config/alg-rgb/mode\""]
+    setModeProc.running = false
+    setModeProc.running = true
+
+    if (dynamicEnabled && root.driverPresent && root.powered) {
+      var hex = root.colorToHex(root.themeColor)
+      root.runCmd(["color", hex, String(root.currentBrightness)])
+    }
+    root.injectPanel()
+  }
+
   implicitWidth:  button.implicitWidth
   implicitHeight: button.implicitHeight
 
@@ -43,6 +105,8 @@ BarWidget {
     target.powered = root.powered
     target.currentBrightness = root.currentBrightness
     target.currentColor = root.currentColor
+    target.isDynamic = root.isDynamic
+    target.themeColor = root.themeColor
   }
 
   onBarChanged: injectPanel()
@@ -152,7 +216,7 @@ BarWidget {
 
     tooltipText: root.driverPresent
       ? (root.powered
-          ? "ALG RGB · " + root.currentColor.toUpperCase() + " · Brightness " + root.currentBrightness + "/4"
+          ? "ALG RGB · " + (root.isDynamic ? "Dynamic (" + root.currentColor.toUpperCase() + ")" : root.currentColor.toUpperCase()) + " · Brightness " + root.currentBrightness + "/4"
           : "ALG RGB · Backlight Off (right-click to power on)")
       : "ALG RGB · Driver not loaded"
 
