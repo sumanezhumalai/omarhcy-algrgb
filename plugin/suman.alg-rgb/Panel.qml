@@ -41,90 +41,45 @@ Panel {
   property string effectiveColor:    "#ffffff"
 
   function colorToHex(c) {
+    if (root.hostWidget && typeof root.hostWidget.colorToHex === "function") {
+      return root.hostWidget.colorToHex(c)
+    }
     if (!c) return "#ffffff"
     var s = String(c).trim().toLowerCase()
-    if (s.indexOf("#") === 0) {
-      if (s.length === 9) return "#" + s.substring(3)
-      if (s.length === 7) return s
-    }
-    return "#ffffff"
+    return s.indexOf("#") === 0 ? (s.length === 9 ? "#" + s.substring(3) : s) : "#ffffff"
   }
 
-  // Re-read status whenever the panel opens
+  // Refresh status whenever the panel opens
   onOpenedChanged: {
-    if (opened) {
-      root.refresh()
-    }
+    if (opened) root.refresh()
   }
 
   function refresh() {
-    if (!statusProc.running) {
-      statusProc.running = true
-    }
     if (root.hostWidget && typeof root.hostWidget.refresh === "function") {
       root.hostWidget.refresh()
     }
   }
 
-  Process {
-    id: statusProc
-    command: ["alg-rgb", "status", "--json"]
-    running: false
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.parseStatus(text)
+  // Forward commands directly to the bar widget runner
+  function runCmd(args) {
+    if (root.hostWidget && typeof root.hostWidget.runCmd === "function") {
+      root.hostWidget.runCmd(args)
     }
-  }
-
-  function parseStatus(text) {
-    if (!text || text.trim() === "") return
-    var obj = null
-    try { obj = JSON.parse(text.trim()) } catch(e) {}
-    if (!obj) return
-    root.driverPresent     = (obj.ok === true)
-    root.powered           = (obj.power === "on")
-    root.currentBrightness = parseInt(obj.brightness) || 1
-    root.currentColor      = obj.color || "#ffffff"
-
-    if ((!root.baseColor || root.baseColor === "#ffffff") && !root.isNightLight && root.currentColor) {
-      if (!root.isDynamic) {
-        root.baseColor = root.currentColor
-      }
-    }
-  }
-
-  // ---- Commands --------------------------------------------------------
-  Process {
-    id: cmdProc
-    running: false
-    stdout: StdioCollector { waitForEnd: true }
-    onExited: function(exitCode) {
-      root.refresh()
-      if (root.hostWidget && typeof root.hostWidget.refresh === "function") {
-        root.hostWidget.refresh()
-      }
-    }
-  }
-
-  function runAlgRgb(args) {
-    cmdProc.command = ["alg-rgb"].concat(args)
-    cmdProc.running = false
-    cmdProc.running = true
   }
 
   function applyColor(hex) {
     root.currentColor = hex
     root.baseColor = hex
-    runAlgRgb(["color", hex, String(root.currentBrightness)])
+    runCmd(["color", hex, String(root.currentBrightness)])
   }
 
   function applyBrightness(level) {
     root.currentBrightness = level
-    runAlgRgb(["brightness", String(level)])
+    runCmd(["brightness", String(level)])
   }
 
   function togglePower() {
-    runAlgRgb(root.powered ? ["off"] : ["on"])
+    runCmd(root.powered ? ["off"] : ["on"])
   }
 
   function applyDynamic() {
@@ -352,9 +307,9 @@ Panel {
                         Text {
                           anchors.centerIn: parent
                           textFormat: Text.PlainText
-                          text: "\uf53f"
+                          text: "󰏘"
                           font.family: root.bar ? root.bar.fontFamily : Style.font.family
-                          font.pixelSize: Style.font.caption
+                          font.pixelSize: Style.font.body
                           color: {
                             var tc = root.themeColor
                             var lum = 0.299 * tc.r + 0.587 * tc.g + 0.114 * tc.b
