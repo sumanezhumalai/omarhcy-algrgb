@@ -1,6 +1,6 @@
 # suman-algrgb
 
-Native Linux ACPI lighting driver, CLI, and Omarchy shell plugin for the **Acer Aspire Lite AL15G-52**.
+Native Linux ACPI lighting driver, CLI, and Omarchy shell plugin for the **Acer Aspire Lite AL15G-52** (and compatible Acer laptops with the `CLV0001` ACPI interface).
 
 ---
 
@@ -71,9 +71,9 @@ sudo bash ./install.sh
 The installer:
 1. Builds and installs `/usr/local/bin/alg-rgb`.
 2. Registers and builds the `alg_rgb` DKMS kernel module.
-3. Installs udev rules for unprivileged seat access (`/dev/alg_rgb`).
+3. Installs udev rules for unprivileged seat access (`/dev/alg_rgb`) with `uaccess`.
 4. Configures systemd state restore and sleep/resume hooks.
-5. Automatically installs the Omarchy shell plugin if Omarchy is present.
+5. Automatically installs the Omarchy shell plugin (`suman.alg-rgb`) and theme-set hook if Omarchy is present.
 
 ### User Permissions
 
@@ -81,6 +81,30 @@ The installer:
 sudo usermod -aG alg-rgb "$USER"
 newgrp alg-rgb
 ```
+
+---
+
+## Omarchy Shell Plugin
+
+A native status bar widget and control panel (`suman.alg-rgb`) integrates seamlessly into the Omarchy bar (`~/.config/omarchy/plugins/suman.alg-rgb`):
+
+- **Bar Widget**:
+  - Displays a pure white Font Awesome keyboard icon (`` / `\uf11c`) matching native Omarchy bar icons.
+  - Automatically dims when the backlight is powered off or in standby.
+  - **Left-Click**: Toggles the control panel popout.
+  - **Right-Click**: Toggles keyboard backlight power instantly.
+- **Control Panel**:
+  - Live color preview swatch and power switch.
+  - 4-level discrete brightness slider.
+  - **Dynamic Theme Matching**: Automatically synchronizes keyboard backlight with the active Omarchy theme's accent color in real time. Features a native `󰏘` palette icon.
+  - **Curated Warm Presets**: One-click static selection of eye-easy aesthetic tones:
+    - **Flesh**: `#ff7f3f`
+    - **Warm Orange**: `#ff7f00`
+    - **Amber Sand**: `#e0af68`
+    - **Buttercream**: `#ded885`
+- **Instant Night Light Synchronization**:
+  - Automatically monitors `hyprsunset` via Quickshell's in-memory `Commons.IpcRegistry`.
+  - When night light activates, chromatic adaptation is calculated and dispatched within **~30ms** (reduced from legacy ~2100ms process polling), using **0.00% CPU**.
 
 ---
 
@@ -114,19 +138,26 @@ alg-rgb probe
 
 ---
 
-## Omarchy Shell Plugin
+## Architecture & Technical Deep Dive
 
-A native status bar widget and control panel (`suman.alg-rgb`) is included under `plugin/suman.alg-rgb`.
+### 1. Embedded Firmware Effects vs. Userspace Animation Daemon
+The codebase supports two distinct effect mechanisms:
+- **Hardware-Native Firmware Effects**:
+  The keyboard's embedded controller natively implements 7 animation patterns (`random`, `flash`, `tempo`, `dance`, `wave`, `cycle`, `breath`). These are triggered by sending a single 4-byte ACPI packet through the kernel driver (`alg_push_effect_locked`). The hardware controller chip autonomously executes the animation with zero CPU usage.
+- **Userspace Animation Daemon**:
+  `cli/alg-rgb.c` contains an optional mathematical software animation engine (with sinusoidal HSV transforms and phase offsets). When invoked from the CLI, it can stream raw frames to `/dev/alg_rgb` (via the kernel's low-overhead `frame` command).
+- **Idle State During Normal Operation**:
+  During standard static color usage, theme switching, night light adaptation, and all Omarchy panel interactions, the software animation daemon remains completely **dormant / idle (0.00% CPU and 0 MB RAM overhead)**.
 
-- **Bar Widget**: Clean white Font Awesome keyboard icon (``) matching Omarchy native aesthetics. Dims automatically when the backlight is off or standby.
-- **Control Panel**:
-  - Live color preview swatch and power toggle.
-  - Discrete brightness slider (levels 1 to 4).
-  - **Dynamic Theme Matching**: Automatically pairs the keyboard backlight with the active Omarchy theme's accent color live whenever themes switch.
-  - **Curated Warm Presets**: One-click static lock into warm, eye-easy aesthetic tones (Flesh `#ff7f3f`, Warm Orange `#ff7f00`, Amber Sand `#e0af68`, Buttercream `#ded885`).
-- **Interactions**:
-  - **Left-Click**: Toggle the control panel popup.
-  - **Right-Click**: Toggle backlight power on/off.
+### 2. Night Light Chromatic Adaptation & Hyprctl Shim
+To prevent visual clash between a warm night-light display and a cold keyboard backlight, the driver applies Bradford-based chromatic adaptation matching `hyprsunset`:
+
+$$\Delta T = 6000 - T_{\text{sunset}}$$
+$$G_{\text{scale}} = 1.0 - \left(0.2799 \times \frac{\Delta T}{2750}\right)$$
+$$B_{\text{scale}} = 1.0 - \left(0.5172 \times \frac{\Delta T}{2750}\right)$$
+
+* At **3250K**, green is scaled to ~72% and blue to ~48%, producing a color balance that perfectly matches the display.
+* For custom color temperatures without modifying `/usr/share/omarchy/`, a lightweight transparent `hyprctl` shim in `~/.local/bin/hyprctl` maps standard requests (e.g., 4000K) to 3250K system-wide while maintaining instant loop termination for `omarchy-toggle-nightlight`.
 
 ---
 
@@ -162,4 +193,5 @@ newgrp alg-rgb
 ## License & Credits
 
 - **License**: GNU General Public License v2.0 ([GPL-2.0](LICENSE))
+- **Author / Maintainer**: Suman Ezhumalai
 - **Based on research by**: Kaushik ([`24kaushik/alg-cli`](https://github.com/24kaushik/alg-cli)) and Chirag Koyande for initial ACPI CLV0001 discovery.

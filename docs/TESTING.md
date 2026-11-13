@@ -288,110 +288,48 @@ Expected: permission denied. Do not weaken the udev rule to `0666`.
 
 ---
 
-## 8. Web dashboard
+## 8. Omarchy shell plugin & desktop integration
+
+Verify that the Omarchy plugin (`suman.alg-rgb`) is registered and operational in the Omarchy bar:
 
 ```bash
-systemctl --user status alg-rgb-web --no-pager
-ss -ltnp | grep 8722
-curl -s http://127.0.0.1:8722/api/health | python3 -m json.tool
+# Verify plugin and hook files exist in user config
+ls -d ~/.config/omarchy/plugins/suman.alg-rgb
+ls -l ~/.config/omarchy/hooks/theme-set.d/alg-rgb
 ```
 
-Expected: the service is active and listening only on `127.0.0.1:8722`.
-Open <http://127.0.0.1:8722/> and verify:
+### UI and interaction checks:
+1. **Bar Widget Icon**:
+   - The bar displays a pure white Font Awesome keyboard icon (`\uf11c`).
+   - The icon automatically dims when backlight power is off or when `/dev/alg_rgb` is unavailable.
+   - Right-clicking the icon toggles backlight power instantly.
+   - Left-clicking toggles the control panel popout.
 
-- connection pill says Connected;
-- keyboard visual matches the current colour/brightness;
-- colour picker and hex input apply a colour;
-- swatches apply colours;
-- brightness slider changes levels;
-- zone selector changes the zone;
-- each effect card applies an effect;
-- Static returns to the chosen colour;
-- power switch turns the backlight off/on;
-- presets apply and custom presets persist across reload;
-- activity list updates;
-- per-key lab shows "Zone RGB only";
-- "Run hardware probe" returns checks and JSON;
-- layout works at desktop and mobile widths.
+2. **Control Panel**:
+   - Top hero shows live color preview circle, title, status metadata, and power toggle switch.
+   - Brightness slider changes levels 1–4 smoothly.
+   - **Dynamic Swatch**: Displays active theme accent with a `󰏘` palette icon. Clicking it enables dynamic tracking mode (`~/.config/alg-rgb/mode`).
+   - **Aesthetic Presets**: Clicking Flesh, Orange, Amber, or Cream locks into that static warm preset.
 
-API checks:
-
-```bash
-curl -s http://127.0.0.1:8722/api/status | python3 -m json.tool
-curl -s -X POST http://127.0.0.1:8722/api/color \
-  -H 'Content-Type: application/json' \
-  -d '{"color":"#22d3ee","brightness":3,"zone":"main"}' | python3 -m json.tool
-curl -s -X POST http://127.0.0.1:8722/api/brightness \
-  -H 'Content-Type: application/json' -d '{"brightness":2}'
-curl -s -X POST http://127.0.0.1:8722/api/effect \
-  -H 'Content-Type: application/json' -d '{"effect":"wave"}'
-curl -s -X POST http://127.0.0.1:8722/api/power \
-  -H 'Content-Type: application/json' -d '{"on":false}'
-curl -s http://127.0.0.1:8722/api/probe | python3 -m json.tool
-```
-
-Validation checks (expect HTTP 400):
-
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' -X POST \
-  http://127.0.0.1:8722/api/color \
-  -H 'Content-Type: application/json' -d '{"color":"not-a-color"}'
-
-curl -s -o /dev/null -w '%{http_code}\n' -X POST \
-  http://127.0.0.1:8722/api/brightness \
-  -H 'Content-Type: application/json' -d '{"brightness":9}'
-```
-
-LAN refusal:
-
-```bash
-alg-rgb-web --host 0.0.0.0
-# should exit with "refusing non-loopback bind without --allow-lan"
-```
+3. **Night Light & Theme Synchronization**:
+   - When night light is triggered (`omarchy-toggle-nightlight` or `hyprsunset`), the keyboard backlight adapts chromatically in **~30ms** via in-memory IPC (`Commons.IpcRegistry`).
+   - When switching Omarchy themes, the theme hook (`hooks/theme-set.d/alg-rgb`) automatically syncs the new accent color to the keyboard if Dynamic mode is active.
 
 ---
 
-## 9. GNOME extension
-
-```bash
-gnome-extensions list | grep alg-rgb
-gnome-extensions info alg-rgb@chiragk.local
-```
-
-Expected: UUID `alg-rgb@chiragk.local`, enabled. Click the keyboard icon
-and verify:
-
-- status line shows current colour/brightness;
-- colour swatches apply;
-- slider changes brightness;
-- effect submenu applies effects;
-- Turn Off / Turn On works;
-- Open dashboard opens the web UI.
-
-On Wayland, log out/in after installation if the extension is not found.
-Shell errors:
-
-```bash
-journalctl --user -f -o cat /usr/bin/gnome-shell
-```
-
----
-
-## 10. Reboot and reinstall
+## 9. Reboot and reinstall
 
 ```bash
 sudo reboot
 ```
 
-After login, verify CLI, dashboard and extension again. Then test the
-installer's idempotence:
+After login, verify CLI and the Omarchy widget again. Then test the installer's idempotence:
 
 ```bash
 sudo bash install.sh
 ```
 
-Expected: no duplicate DKMS registration, no errors, module reloads, and
-the keyboard responds.
+Expected: no duplicate DKMS registration, no errors, module reloads cleanly, and the keyboard responds.
 
 Finally, test the uninstaller in a maintenance window:
 
@@ -405,16 +343,16 @@ Reinstall afterward if needed.
 
 ---
 
-## 11. Failure handling
+## 10. Failure handling
 
 | Symptom | Check | Action |
 | --- | --- | --- |
 | No `/dev/alg_rgb` | `sudo dmesg \| tail -40`, `dkms status` | Rebuild DKMS, check headers, Secure Boot |
-| Permission denied | `ls -l`, `id`, `getfacl` | Log out/in, check udev rule |
+| Permission denied | `ls -l`, `id`, `getfacl` | Log out/in, check `alg-rgb` group and udev rule |
 | No ACPI device | `ls /sys/bus/acpi/devices/CLV0001:00` | Unsupported model or firmware |
 | Module loads but writes fail | `dmesg`, `alg-rgb probe` | ACPI handle not found; do not fuzz |
 | Effect hangs lighting | `alg-rgb effect none`, `alg-rgb off` | Power cycle; report firmware behaviour |
-| Dashboard 502 | `journalctl --user -u alg-rgb-web` | Check CLI path and `/dev/alg_rgb` access |
-| Extension missing | `gnome-extensions list` | Log out/in on Wayland |
+| Night light slow to adapt | Check `Commons.IpcRegistry` in bar | Ensure `suman.alg-rgb` widget is running in bar |
+| Plugin missing from bar | `~/.config/omarchy/plugins/suman.alg-rgb` | Re-run `install.sh` or enable widget in Omarchy config |
 
 Do not use `_DSM 0x68`-`0x6A` as a debugging tool.

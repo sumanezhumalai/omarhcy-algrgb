@@ -332,48 +332,6 @@ BarWidget {
     root.injectPanel()
   }
 
-  // Probes hyprsunset directly via hyprctl (fallback)
-  Process {
-    id: sunsetProc
-    command: ["hyprctl", "hyprsunset", "temperature"]
-    running: false
-    stdout: StdioCollector {
-      waitForEnd: true
-      onStreamFinished: root.parseSunset(text)
-    }
-  }
-
-  function parseSunset(text) {
-    var raw = (text || "").trim()
-    var temp = 0
-    if (raw !== "") {
-      if (raw.indexOf("--identity") !== -1 || raw.indexOf(" -i") !== -1) {
-        temp = 6500
-      } else {
-        var m = raw.match(/([1-5][0-9]{3})/)
-        if (m && m[1]) {
-          temp = parseInt(m[1])
-        }
-      }
-    }
-
-    var active = (temp > 1000 && temp < 6000)
-    var effectiveTemp = active ? temp : (temp >= 6000 ? temp : 6000)
-
-    if (active) {
-      root.sunsetTemp = effectiveTemp
-    }
-
-    // Only fallback drives if IpcRegistry is missing
-    var h = Commons.IpcRegistry.handlerFor("nightlight")
-    if (!h) {
-      if (root.isNightLight !== active || (active && root.sunsetTemp !== effectiveTemp)) {
-        root.isNightLight = active
-        root.sunsetTemp = effectiveTemp
-      }
-    }
-  }
-
   // ---- Command runner ---------------------------------------------------
   Process {
     id: cmdProc
